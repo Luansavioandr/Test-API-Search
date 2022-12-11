@@ -11,8 +11,8 @@ namespace Test_API_Search.Controllers
         [HttpGet]
         public JsonResult RequestSearch(String search)
         {
-            var request = new SearchBusiness().SearchRequest(search);
-            return new JsonResult(request);
+            var result = new SearchBusiness().SearchRequest(search);
+            return new JsonResult(result);
         }
     }
 }

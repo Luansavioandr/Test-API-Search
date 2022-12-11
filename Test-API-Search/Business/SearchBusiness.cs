@@ -1,45 +1,60 @@
-﻿using Test_API_Search.Models;
+﻿using HtmlAgilityPack;
 using System.Net;
-using System.IO;
-using static Test_API_Search.Business.SearchBusiness;
+using System.Text;
+using System.Web;
+using Test_API_Search.Models;
 
 namespace Test_API_Search.Business
 {
     public class SearchBusiness
     {
-        public void SearchRequest(string Search)
+        public List<Search> SearchRequest(string Search)
         {
-            var searchRequest = WebRequest.CreateHttp("https://www.google.com.br/search?q=atak+sistemas");
-            searchRequest.Method = "GET";
-            searchRequest.UserAgent = "Mozilla / 5.0(Windows; U; Windows NT 6.1; rv: 2.2) Gecko / 20110201";
+            StringBuilder sb = new StringBuilder();
+            byte[] ResultsBuffer = new byte[8192];
+            string SearchResults = "https://www.google.com.br/search?q=" + Search.Replace(" ","+");
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(SearchResults);
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
 
-            using (var response = searchRequest.GetResponse())
+            Stream resStream = response.GetResponseStream();
+            string tempString = null;
+            int count = 0;
+            do
             {
-                var streamDados = response.GetResponseStream();
-                StreamReader reader = new StreamReader(streamDados);
-                string objResponse = reader.ReadToEnd();
-
-                var parametro = objResponse.Split(new string[] { @"url?q\x3d" }, StringSplitOptions.None)[1].Split(@"\x26amp");
-
-                //var post = JsonConvert.DeserializeObject<Post>(objResponse.ToString());
-
-                //Console.WriteLine(post.Id + " " + post.title + " " + post.body);
-                //Console.ReadLine();
-                //streamDados.Close();
-                //response.Close();
-
-                List<Search> lista = new List<Search>();
-                foreach (Search search in lista)
+                count = resStream.Read(ResultsBuffer, 0, ResultsBuffer.Length);
+                if (count != 0)
                 {
-                    if (search.Titulo != )
-                    {
-                        return;
-                    }
+                    tempString = Encoding.ASCII.GetString(ResultsBuffer, 0, count);
+                    sb.Append(tempString);
                 }
             }
 
-            //Console.ReadLine();
+            while (count > 0);
+            string sbb = sb.ToString();
 
+            HtmlAgilityPack.HtmlDocument html = new HtmlAgilityPack.HtmlDocument();
+            html.OptionOutputAsXml = true;
+            html.LoadHtml(sbb);
+            HtmlNode doc = html.DocumentNode;
+            List<Search> results = new List<Search>();  
+            foreach (HtmlNode link in doc.SelectNodes("//a[@href]"))
+            {
+                string hrefValue = link.GetAttributeValue("href", string.Empty);
+                if (!hrefValue.ToString().ToUpper().Contains("GOOGLE") && hrefValue.ToString().Contains("/url?q=") && ( hrefValue.ToString().ToUpper().Contains("HTTP://") || hrefValue.ToString().ToUpper().Contains("HTTPS://")))
+                {
+                    int index = hrefValue.IndexOf("&");
+                    if (index > 0)
+                    {
+                        Search search = new Search();
+                        hrefValue = hrefValue.Substring(0, index);
+                        search.Link = hrefValue.Replace("/url?q=", "");
+                        search.Titulo = link.InnerText;
+                        results.Add(search);
+
+                    }
+                }
+            }
+           return results;
         }
       
     }
